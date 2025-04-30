@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env
+
+# IDEs & editors
+.vscode/
+.idea/
+
+# Docker
+docker-compose.override.yml
+*.log
+
+# Mac
+.DS_Store
+
+build/
+dist/
+note.spec
