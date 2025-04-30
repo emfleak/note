@@ -76,6 +76,12 @@ note list           # Clean view (line number, time, preview)
 note list -a        # Full view (includes ID and tags)
 ```
 
+### View note
+
+```bash
+note view 12
+```
+
 ### Search notes
 
 ```bash

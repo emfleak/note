@@ -259,15 +259,15 @@ def pick_with_fzf():
 
     for idx, (nid, note) in enumerate(db.items(), start=1):
         dt = pretty_time(note['timestamp'])
-        preview = note['content'][:100].replace('\n', ' ')
+        preview = note['content'][:PREVIEW_LENGTH].replace('\n', ' ')
         tags = note.get('tags', [])
-        tag_str = f" \033[35m[{', '.join(tags)}]\033[0m" if tags else ""
-        line = f"{idx}\t{dt}\t{preview}{tag_str}"
+        tag_str = f"\033[35m[{', '.join(tags)}]\033[0m" if tags else ""
+        line = f"{idx}\t{dt}\t{preview} {tag_str}"
         lines.append(line)
 
     try:
         fzf = subprocess.run(
-            ["fzf", "--multi", "--ansi", "--prompt=Use tab to multi-select or type to search: "],
+            ["fzf", "--multi", "--ansi", "--prompt=Select note(s): "],
             input="\n".join(lines),
             text=True,
             capture_output=True
@@ -279,28 +279,38 @@ def pick_with_fzf():
         selected_idxs = [int(line.split("\t")[0]) for line in selected_lines]
         selected_ids = [keys[idx - 1] for idx in selected_idxs]
 
+        # Single note selected
         if len(selected_ids) == 1:
             nid = selected_ids[0]
-            action = input("Action? (v)iew (e)dit (d)elete > ").strip().lower()
-            if action == "v":
-                print("\n=== Note ===")
-                print(db[nid]['content'])
-            elif action == "d":
+            note = db[nid]
+            dt = pretty_time(note["timestamp"], year=True)
+            tags = note.get("tags", [])
+            tag_str = f"[{', '.join(tags)}]" if tags else ""
+
+            print(f"\n{Fore.GREEN}Note {selected_idxs[0]} ({nid})")
+            print(f"{Fore.LIGHTBLACK_EX}{dt} {Fore.MAGENTA}{tag_str}{Style.RESET_ALL}")
+            print("\n" + note["content"])
+
+            next_action = input("\nDo you want to (e)dit, (a)ppend, (d)elete, or (Enter) to cancel? > ").strip().lower()
+
+            if next_action == "e":
+                edit_note_by_id(nid)
+            elif next_action == "a":
+                text = input("Append text: ")
+                db[nid]['content'] += "\n" + text
+                save_db(db)
+                print("Note updated.")
+            elif next_action == "d":
                 confirm = input(f"Delete note {nid}? (y/n) > ")
                 if confirm.lower() == 'y':
                     del db[nid]
                     save_db(db)
                     print("Note deleted.")
-            # elif action == "a":
-            #     text = input("Append text: ")
-            #     db[nid]['content'] += "\n" + text
-            #     save_db(db)
-            #     print("Note updated.")
-            elif action == "e":
-                edit_note_by_id(nid)
             else:
-                print("Unknown action.")
-        else:
+                print("No changes made.")
+
+        # Multi-select → bulk delete
+        elif len(selected_ids) > 1:
             print("Selected notes:")
             for nid in selected_ids:
                 print(f"- {nid}")
