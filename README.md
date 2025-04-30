@@ -1,127 +1,80 @@
-# note — A Terminal Note-Taking Tool
+# 📝 note — A Fast Terminal Note-Taking Tool
 
-**note** is a simple, fast, and keyboard-friendly CLI tool for capturing, browsing, editing, and managing personal notes directly from your terminal.
-
-Designed for speed and minimalism, it supports both **quick one-liner notes** and full multiline notes using your favorite editor.
+**note** is a lightweight, terminal-first note-taking app designed for **speed**, **clarity**, and **power**. Whether you're jotting quick tasks or logging structured thoughts, `note` lets you do it all from the command line — instantly.
 
 ---
 
-## Features
+## 🚀 Features
 
-- ✅ One-liner notes right from the command line
-- 📝 Full multiline notes in `$EDITOR` (`nano`, `vim`, etc.)
-- 🔍 Fuzzy search with `fzf` picker
-- 🧠 Append, edit, and delete notes easily
-- 📋 List notes with timestamps and previews
-- 📦 JSON-based storage (`~/.notes_db.json`)
-- 🛠 Works entirely offline and cross-platform
+- ⚡ Quick inline notes with `note "this is a note"`  
+- 📝 Multiline notes with your favorite editor (`nano`, `vim`, etc.)
+- 🔍 Fuzzy search picker with `fzf`
+- 🧠 Append to or edit existing notes by number
+- 🗂 Tagging support (`--tags`)
+- 🧹 Delete notes by number, or purge everything with confirmation
+- 💾 Human-readable JSON storage (~/.notes_db.json)
+- 🎨 Colorized output for readability
 
 ---
 
 ## 📦 Installation
 
-1. Clone this repo:
-
-   ```bash
-   git clone https://github.com/yourusername/note.git
-   cd note
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   pip install colorama
-   ```
-
-   Also install `fzf`:
-
-   ```bash
-   # macOS
-   brew install fzf
-
-   # Debian/Ubuntu
-   sudo apt install fzf
-   ```
-
-3. Make it executable and move it into your PATH:
-
-   ```bash
-   chmod +x note.py
-   mv note.py /usr/local/bin/note  # or somewhere in your PATH
-   ```
-
-4. (Optional) Set your preferred editor:
-
-   ```bash
-   export EDITOR=nvim   # or vim, code, micro, etc.
-   ```
-
----
-
-## 🧪 Usage
-
-### ✅ Quick notes
+### 1. Clone the repo
 
 ```bash
-note "Fix Nginx redirect issue"
+git clone https://github.com/yourusername/note.git
+cd note
 ```
 
-Adds a one-liner note instantly.
-
----
-
-### 📋 List notes
+### 2. Install dependencies
 
 ```bash
-note list           # Basic listing (line number, time, preview)
-note list -a        # Full info (includes internal ID)
+pip install colorama
 ```
 
----
+Install `fzf`:
 
-### 📝 Add multiline note
+```bash
+# macOS
+brew install fzf
+
+# Ubuntu/Debian
+sudo apt install fzf
+```
+
+### 3. Install the CLI
+
+```bash
+chmod +x note.py
+mv note.py /usr/local/bin/note  # Or any directory in your PATH
+```
+
+## 🧪 Example Usage
+
+### ⚡ Quick notes
+
+```bash
+note "Fix broken redirect in Nginx"
+```
+
+### 📝 Multiline notes
 
 ```bash
 note add
 ```
 
-Opens your `$EDITOR` to create a longer note.
-
----
-
-### ➕ Append to a note
+Will launch nano. Add `--tags` for organization:
 
 ```bash
-note append 2 "Add link to bug report"
+note add --tags project journal
 ```
 
----
-
-### 🛠 Edit a note
+### 📋 List notes
 
 ```bash
-note edit 3
+note list           # Clean view (line number, time, preview)
+note list -a        # Full view (includes ID and tags)
 ```
-
-Opens the selected note in your editor for full editing.
-
----
-
-### ❌ Delete a note
-
-```bash
-note del 4
-```
-
----
-
-### 💣 Delete ALL notes (with confirmation)
-
-```bash
-note --delete-all
-```
-
----
 
 ### 🔍 Search notes
 
@@ -129,61 +82,88 @@ note --delete-all
 note search nginx
 ```
 
-Case-insensitive search across all notes.
+### 🧠 Tag notes
+
+```bash
+note "Add SSL to API gateway" --tags infra security
+note tags           # Show all tags
+note tags infra     # Filter by tag
+```
+
+### 🛠 Edit or append to notes
+
+```bash
+note append 2 "Add link to bug ticket"
+note edit 3
+```
+
+### ❌ Delete notes
+
+```bash
+note del 4
+note --delete-all   # Prompts for confirmation
+```
 
 ---
 
-### 🎯 Use interactive picker
+## 🎯 Interactive Picker (fzf)
+
+Run `note` with no arguments to launch an interactive fuzzy-searchable picker:
 
 ```bash
 note
 ```
 
-- Uses `fzf` to let you:
-  - Select one or more notes
-  - View, append, edit, or delete them
-  - Multi-select for bulk deletion
+- Type to filter notes
+- Use arrow keys and Enter to:
+  - (v)iew]
+  - (e)dit
+  - (d)elete
+- Supports **multi-select** for bulk deletion
+- Colorized and tag-aware
 
 ---
 
-## 📁 Where are notes stored?
+## 💻 Example Output
 
-All notes are saved in:
+```bash
+note list -a
+
+1   94d8f0a2   9:05AM Mon, Apr 29 2025   Fix redirect issue        [infra, urgent]
+2   b21c3a0e   10:30AM Tue, Apr 30 2025  Finalize meeting agenda   [work, planning]
+```
+
+## 📁 Storage
+
+All notes are stored in:
 
 ```
 ~/.notes_db.json
 ```
 
-This makes it easy to back up, version, or sync manually.
+This makes it easy to back up, sync, or inspect manually.
 
 ---
 
-## ✅ Example Output
+## 🙌 Why use `note`?
+
+- Fast and responsive (keyboard-only)
+- Cleaner than sticky notes, simpler than Notion
+- Cross-platform: macOS, Linux, WSL
+- Syncable: just version your `~/.notes_db.json`
+
+---
+
+## 📖 Help
 
 ```bash
-note list
-
-1   9:05AM Mon, Apr 29 2025   Fix redirect bug in Nginx config
-2   2:45PM Tue, Apr 30 2025   Talk with ops about service restart
+note --help
 ```
 
----
-
-## 🙌 Why Use This?
-
-- Works everywhere (Linux, macOS, WSL)
-- Instant launch — perfect for muscle-memory workflows
-- No cloud, no database, just your words
-- Fzf-powered navigation is lightning-fast
+Shows full usage instructions and examples.
 
 ---
 
-## License
+## 📜 License
 
 MIT
-
----
-
-## Contributions
-
-Ideas are welcome.

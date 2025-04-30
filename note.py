@@ -7,6 +7,7 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 DB_PATH = os.path.expanduser("~/.notes_db.json")
+PREVIEW_LENGTH = 40 #length of note content in list views
 
 def pretty_time(timestring):
     dt = datetime.fromisoformat(timestring)
@@ -107,7 +108,7 @@ def list_notes(all_info=False):
 
     for idx, (nid, note) in enumerate(db.items(), start=1):
         dt = pretty_time(note['timestamp'])
-        preview = note['content'][:40].replace('\n', ' ')+"..." if len(note['content']) > 40 else note['content'].replace('\n', ' ')
+        preview = note['content'][:PREVIEW_LENGTH].replace('\n', ' ')+"..." if len(note['content']) > 40 else note['content'].replace('\n', ' ')
         tags = note.get('tags', [])
         tag_str = f" {Fore.MAGENTA}[{' '.join(tags)}]{Style.RESET_ALL}" if tags and all_info else ""
 
@@ -260,7 +261,7 @@ def pick_with_fzf():
 
         if len(selected_ids) == 1:
             nid = selected_ids[0]
-            action = input("Action? (v)iew (e)dit (a)ppend (d)elete > ").strip().lower()
+            action = input("Action? (v)iew (e)dit (d)elete > ").strip().lower()
             if action == "v":
                 print("\n=== Note ===")
                 print(db[nid]['content'])
@@ -270,11 +271,11 @@ def pick_with_fzf():
                     del db[nid]
                     save_db(db)
                     print("Note deleted.")
-            elif action == "a":
-                text = input("Append text: ")
-                db[nid]['content'] += "\n" + text
-                save_db(db)
-                print("Note updated.")
+            # elif action == "a":
+            #     text = input("Append text: ")
+            #     db[nid]['content'] += "\n" + text
+            #     save_db(db)
+            #     print("Note updated.")
             elif action == "e":
                 edit_note_by_id(nid)
             else:
@@ -326,8 +327,13 @@ def main():
             for idx, (nid, note) in enumerate(db.items(), start=1):
                 if tag in note.get('tags', []):
                     dt = pretty_time(note['timestamp'])
-                    preview = note['content'][:100].replace('\n', ' ')
-                    print(f"{idx}\t{dt}\t{preview}")
+                    preview = note['content'][:PREVIEW_LENGTH].replace('\n', ' ')
+                    tags = note.get('tags', [])
+                    tag_str = f" {Fore.MAGENTA}[{' '.join(tags)}]{Style.RESET_ALL}"
+                    print(
+                        f"{Fore.GREEN}{idx}{Style.RESET_ALL}\t"
+                        f"{Fore.LIGHTBLACK_EX}{dt}{Style.RESET_ALL}\t"
+                        f"{preview}{tag_str}")
         else:
             print("Usage: note tags [tagname]")
 
