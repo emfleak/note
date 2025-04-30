@@ -10,36 +10,52 @@ DB_PATH = os.path.expanduser("~/.notes_db.json")
 
 def pretty_time(timestring):
     dt = datetime.fromisoformat(timestring)
-    return dt.strftime("%-I:%M%p %a, %b %d %Y")
+    return dt.strftime("%-I:%M%p %a, %b %d")
+
+def extract_tags(args):
+    if '--tags' in args:
+        idx = args.index('--tags')
+        tags = args[idx + 1:]
+        args = args[:idx]
+    else:
+        tags = []
+    return args, [t.lower() for t in tags]
 
 def print_help():
     help_text = """
 Note - A fast terminal note-taking tool
 
 Usage:
-  note "your note text"           Add a new note
-  note add                        Add a new multiline note using your editor
-  note list                       List notes (line number, timestamp, snippet)
-  note list -a                    List notes with full ID and extra info
-  note del <number>               Delete a note by line number
-  note append <number> "text"     Append text to an existing note
-  note edit <number>              Edit a note in your default text editor
-  note search <keyword>           Search notes for a keyword
-  note --delete-all               Delete ALL notes (with confirmation)
-  note                            Launch interactive picker (with fzf)
+  note "your note text" [--tags tag1 tag2]   Add a new note (one-liner)
+  note add [--tags tag1 tag2]                Add a multiline note using your editor
+  note list                                  List notes (number, timestamp, snippet)
+  note list -a                               List notes with full ID and tags
+  note del <number>                          Delete a note by line number
+  note append <number> "text"                Append text to an existing note
+  note edit <number>                         Edit a note in your editor
+  note search <keyword>                      Search notes for keyword
+  note tags                                   List all tags
+  note tags <tag>                             List all notes with a specific tag
+  note --delete-all                          Delete ALL notes (with confirmation)
+  note                                       Launch interactive picker (with fzf)
 
 Options:
-  -a                              Show all info (IDs) in list mode
-  --delete-all                    Delete all notes after confirmation
-  $EDITOR                         Use your preferred editor for editing notes (defaults to nano)
+  --tags tag1 tag2       Add tags to a note (applies to 'note' and 'note add')
+  -a                     Show all info (IDs and tags) in list mode
+  --delete-all           Delete all notes after confirmation
+  $EDITOR                Editor used for multiline note creation/editing (default: nano)
 
 Examples:
-  note "Buy milk and eggs"
+  note "Buy groceries" --tags personal errand
+  note add --tags journal reflection
   note list
+  note list -a
   note del 2
-  note append 1 "Remember to call John"
+  note append 1 "Include bug report link"
   note edit 3
-  note search project
+  note tags
+  note tags work
+  note search ssl
   note --delete-all
 """
     print(help_text)
@@ -54,17 +70,18 @@ def save_db(db):
     with open(DB_PATH, 'w') as f:
         json.dump(db, f, indent=2)
 
-def add_note(text):
+def add_note(text, tags=None):
     db = load_db()
     note_id = str(uuid4())[:8]
     db[note_id] = {
         "timestamp": datetime.now().isoformat(),
-        "content": text
+        "content": text,
+		"tags": tags or []
     }
     save_db(db)
     print(f"Note saved with ID {note_id}")
 
-def add_note_with_editor():
+def add_note_with_editor(tags=None):
     editor = os.environ.get("EDITOR", "nano")
 
     with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp:
@@ -78,7 +95,7 @@ def add_note_with_editor():
     os.unlink(tmp_path)
 
     if content.strip():
-        add_note(content)
+        add_note(content, tags=tags)
     else:
         print("Empty note discarded.")
 
@@ -87,15 +104,19 @@ def list_notes(all_info=False):
     if not db:
         print("No notes yet.")
         return
+
     for idx, (nid, note) in enumerate(db.items(), start=1):
         dt = pretty_time(note['timestamp'])
-        preview = note['content'][:100].replace('\n', ' ')
+        preview = note['content'][:40].replace('\n', ' ')+"..." if len(note['content']) > 40 else note['content'].replace('\n', ' ')
+        tags = note.get('tags', [])
+        tag_str = f" {Fore.MAGENTA}[{' '.join(tags)}]{Style.RESET_ALL}" if tags and all_info else ""
+
         if all_info:
             print(
                 f"{Fore.GREEN}{idx}{Style.RESET_ALL}\t"
                 f"{Fore.BLUE}{nid}{Style.RESET_ALL}\t"
                 f"{Fore.LIGHTBLACK_EX}{dt}{Style.RESET_ALL}\t"
-                f"{preview}"
+                f"{preview}{tag_str}"
             )
         else:
             print(
@@ -218,12 +239,14 @@ def pick_with_fzf():
     for idx, (nid, note) in enumerate(db.items(), start=1):
         dt = pretty_time(note['timestamp'])
         preview = note['content'][:100].replace('\n', ' ')
-        line = f"{idx}\t{nid}\t{dt}\t{preview}"
+        tags = note.get('tags', [])
+        tag_str = f" \033[35m[{', '.join(tags)}]\033[0m" if tags else ""
+        line = f"{idx}\t{dt}\t{preview}{tag_str}"
         lines.append(line)
 
     try:
         fzf = subprocess.run(
-            ["fzf", "--multi", "--prompt=Select note(s): "],
+            ["fzf", "--multi", "--ansi", "--prompt=Use tab to multi-select or type to search: "],
             input="\n".join(lines),
             text=True,
             capture_output=True
@@ -277,39 +300,68 @@ def main():
     if not args:
         pick_with_fzf()
         return
+
     if args[0] in ["-h", "--help", "help"]:
         print_help()
-    elif args[0] == "add" and len(args) == 1:
-        add_note_with_editor()
-    elif args[0] == "list":
+
+    elif args[0] == "add":
+        args, tags = extract_tags(args[1:])  # skip "add"
+        add_note_with_editor(tags=tags)
+
+    elif args[0] in ["list", "ls", "--list"]:
         if len(args) > 1 and args[1] == "-a":
             list_notes(all_info=True)
         else:
             list_notes(all_info=False)
+
+    elif args[0] == "tags":
+        db = load_db()
+        if len(args) == 1:
+            all_tags = set()
+            for note in db.values():
+                all_tags.update(note.get('tags', []))
+            print("Tags:", ", ".join(sorted(all_tags)))
+        elif len(args) == 2:
+            tag = args[1].lower()
+            for idx, (nid, note) in enumerate(db.items(), start=1):
+                if tag in note.get('tags', []):
+                    dt = pretty_time(note['timestamp'])
+                    preview = note['content'][:100].replace('\n', ' ')
+                    print(f"{idx}\t{dt}\t{preview}")
+        else:
+            print("Usage: note tags [tagname]")
+
     elif args[0] == "--delete-all":
         delete_all_notes()
+
     elif args[0] == "del" and len(args) == 2:
         try:
             line_number = int(args[1])
             delete_note(line_number)
         except ValueError:
             print("Please provide a valid number.")
+
     elif args[0] == "append" and len(args) >= 3:
         try:
             line_number = int(args[1])
             append_note(line_number, ' '.join(args[2:]))
         except ValueError:
             print("Please provide a valid number.")
+
     elif args[0] == "edit" and len(args) == 2:
         try:
             line_number = int(args[1])
             edit_note(line_number)
         except ValueError:
             print("Please provide a valid number.")
+
     elif args[0] == "search" and len(args) >= 2:
         search_notes(' '.join(args[1:]))
+
     else:
-        add_note(' '.join(args))
+        # Default case: quick note entry
+        args, tags = extract_tags(args)
+        add_note(' '.join(args), tags=tags)
 
 if __name__ == "__main__":
     main()
