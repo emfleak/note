@@ -9,9 +9,9 @@ init(autoreset=True)
 DB_PATH = os.path.expanduser("~/.notes_db.json")
 PREVIEW_LENGTH = 40 #length of note content in list views
 
-def pretty_time(timestring):
+def pretty_time(timestring, year=False):
     dt = datetime.fromisoformat(timestring)
-    return dt.strftime("%-I:%M%p %a, %b %d")
+    return dt.strftime("%-I:%M%p %a, %b %d") if not year else dt.strftime("%-I:%M%p %a, %b %d %Y")
 
 def extract_tags(args):
     if '--tags' in args:
@@ -31,12 +31,13 @@ Usage:
   note add [--tags tag1 tag2]                Add a multiline note using your editor
   note list                                  List notes (number, timestamp, snippet)
   note list -a                               List notes with full ID and tags
+  note view <number>                         View a full note by line number
   note del <number>                          Delete a note by line number
   note append <number> "text"                Append text to an existing note
   note edit <number>                         Edit a note in your editor
   note search <keyword>                      Search notes for keyword
-  note tags                                   List all tags
-  note tags <tag>                             List all notes with a specific tag
+  note tags                                  List all tags
+  note tags <tag>                            List all notes with a specific tag
   note --delete-all                          Delete ALL notes (with confirmation)
   note                                       Launch interactive picker (with fzf)
 
@@ -51,6 +52,7 @@ Examples:
   note add --tags journal reflection
   note list
   note list -a
+  note view 3
   note del 2
   note append 1 "Include bug report link"
   note edit 3
@@ -100,6 +102,22 @@ def add_note_with_editor(tags=None):
     else:
         print("Empty note discarded.")
 
+def view_note(line_number):
+    db = load_db()
+    keys = list(db.keys())
+    if 1 <= line_number <= len(keys):
+        nid = keys[line_number - 1]
+        note = db[nid]
+        dt = pretty_time(note["timestamp"], year=True)
+        tags = note.get("tags", [])
+        tag_str = f"[{', '.join(tags)}]" if tags else ""
+
+        print(f"\n{Fore.GREEN}Note {line_number} ({nid})")
+        print(f"{Fore.LIGHTBLACK_EX}{dt} {Fore.MAGENTA}{tag_str}{Style.RESET_ALL}")
+        print("\n" + note["content"] + "\n")
+    else:
+        print("Invalid note number.")
+
 def list_notes(all_info=False):
     db = load_db()
     if not db:
@@ -107,12 +125,13 @@ def list_notes(all_info=False):
         return
 
     for idx, (nid, note) in enumerate(db.items(), start=1):
-        dt = pretty_time(note['timestamp'])
+
         preview = note['content'][:PREVIEW_LENGTH].replace('\n', ' ')+"..." if len(note['content']) > 40 else note['content'].replace('\n', ' ')
         tags = note.get('tags', [])
         tag_str = f" {Fore.MAGENTA}[{' '.join(tags)}]{Style.RESET_ALL}" if tags and all_info else ""
 
         if all_info:
+            dt = pretty_time(note['timestamp'], year=True)
             print(
                 f"{Fore.GREEN}{idx}{Style.RESET_ALL}\t"
                 f"{Fore.BLUE}{nid}{Style.RESET_ALL}\t"
@@ -120,6 +139,7 @@ def list_notes(all_info=False):
                 f"{preview}{tag_str}"
             )
         else:
+            dt = pretty_time(note['timestamp'])
             print(
                 f"{Fore.GREEN}{idx}{Style.RESET_ALL}\t"
                 f"{Fore.LIGHTBLACK_EX}{dt}{Style.RESET_ALL}\t"
@@ -308,6 +328,13 @@ def main():
     elif args[0] == "add":
         args, tags = extract_tags(args[1:])  # skip "add"
         add_note_with_editor(tags=tags)
+
+    elif args[0] in ["view", "v", "show"] and len(args) == 2:
+        try:
+            line_number = int(args[1])
+            view_note(line_number)
+        except ValueError:
+            print("Please provide a valid number.")
 
     elif args[0] in ["list", "ls", "--list"]:
         if len(args) > 1 and args[1] == "-a":
