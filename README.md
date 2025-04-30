@@ -49,9 +49,9 @@ chmod +x note.py
 mv note.py /usr/local/bin/note  # Or any directory in your PATH
 ```
 
-## 🧪 Example Usage
+## Example Usage
 
-### ⚡ Quick notes
+### Quick notes
 
 ```bash
 note "Fix broken redirect in Nginx"
@@ -133,7 +133,7 @@ note list -a
 2   b21c3a0e   10:30AM Tue, Apr 30 2025  Finalize meeting agenda   [work, planning]
 ```
 
-## 📁 Storage
+## Storage
 
 All notes are stored in:
 
@@ -161,9 +161,3 @@ note --help
 ```
 
 Shows full usage instructions and examples.
-
----
-
-## License
-
-MIT
