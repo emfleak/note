@@ -4,25 +4,25 @@
 
 ---
 
-## 🚀 Features
+## Features
 
-- ⚡ Quick inline notes with `note "this is a note"`  
-- 📝 Multiline notes with your favorite editor (`nano`, `vim`, etc.)
-- 🔍 Fuzzy search picker with `fzf`
-- 🧠 Append to or edit existing notes by number
-- 🗂 Tagging support (`--tags`)
-- 🧹 Delete notes by number, or purge everything with confirmation
-- 💾 Human-readable JSON storage (~/.notes_db.json)
-- 🎨 Colorized output for readability
+- Quick inline notes with `note "this is a note"`  
+- Multiline notes with your favorite editor (`nano`, `vim`, etc.)
+- Fuzzy search picker with `fzf`
+- Append to or edit existing notes by number
+- Tagging support (`--tags`)
+- Delete notes by number, or purge everything with confirmation
+- Human-readable JSON storage (~/.notes_db.json)
+- Colorized output for readability
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/note.git
+git clone https://github.com/emfleak/note.git
 cd note
 ```
 
@@ -57,7 +57,7 @@ mv note.py /usr/local/bin/note  # Or any directory in your PATH
 note "Fix broken redirect in Nginx"
 ```
 
-### 📝 Multiline notes
+### Multiline notes
 
 ```bash
 note add
@@ -69,20 +69,20 @@ Will launch nano. Add `--tags` for organization:
 note add --tags project journal
 ```
 
-### 📋 List notes
+### List notes
 
 ```bash
 note list           # Clean view (line number, time, preview)
 note list -a        # Full view (includes ID and tags)
 ```
 
-### 🔍 Search notes
+### Search notes
 
 ```bash
 note search nginx
 ```
 
-### 🧠 Tag notes
+### Tag notes
 
 ```bash
 note "Add SSL to API gateway" --tags infra security
@@ -90,14 +90,14 @@ note tags           # Show all tags
 note tags infra     # Filter by tag
 ```
 
-### 🛠 Edit or append to notes
+### Edit or append to notes
 
 ```bash
 note append 2 "Add link to bug ticket"
 note edit 3
 ```
 
-### ❌ Delete notes
+### Delete notes
 
 ```bash
 note del 4
@@ -106,7 +106,7 @@ note --delete-all   # Prompts for confirmation
 
 ---
 
-## 🎯 Interactive Picker (fzf)
+## Interactive Picker (fzf)
 
 Run `note` with no arguments to launch an interactive fuzzy-searchable picker:
 
@@ -124,7 +124,7 @@ note
 
 ---
 
-## 💻 Example Output
+## Example Output
 
 ```bash
 note list -a
@@ -145,7 +145,7 @@ This makes it easy to back up, sync, or inspect manually.
 
 ---
 
-## 🙌 Why use `note`?
+## Why use `note`?
 
 - Fast and responsive (keyboard-only)
 - Cleaner than sticky notes, simpler than Notion
@@ -154,7 +154,7 @@ This makes it easy to back up, sync, or inspect manually.
 
 ---
 
-## 📖 Help
+## Help
 
 ```bash
 note --help
@@ -164,6 +164,6 @@ Shows full usage instructions and examples.
 
 ---
 
-## 📜 License
+## License
 
 MIT
