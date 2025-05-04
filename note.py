@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, json, os, subprocess, tempfile
+import sys, json, os, subprocess, tempfile, shutil
 from datetime import datetime
 from uuid import uuid4
 from colorama import Fore, Style, init
@@ -39,6 +39,10 @@ Usage:
   note tags                                  List all tags
   note tags <tag>                            List all notes with a specific tag
   note --delete-all                          Delete ALL notes (with confirmation)
+  note backup <path>                         Backup all notes to a file
+  note restore <path>                        Restore notes from backup
+  note export <number> [file]                Export a note to a text file
+  note import <file>                         Import a note from a text file
   note                                       Launch interactive picker (with fzf)
 
 Options:
@@ -60,6 +64,10 @@ Examples:
   note tags work
   note search ssl
   note --delete-all
+  note backup notes_backup.json
+  note restore notes_backup.json
+  note export 3 exported_note.txt
+  note import note_to_add.txt
 """
     print(help_text)
 
@@ -72,6 +80,71 @@ def load_db():
 def save_db(db):
     with open(DB_PATH, 'w') as f:
         json.dump(db, f, indent=2)
+
+def backup_notes(dest_path):
+    db_path = os.path.expanduser("~/.notes_db.json")
+    try:
+        shutil.copy(db_path, dest_path)
+        print(f"Backup saved to {dest_path}")
+    except Exception as e:
+        print(f"Backup failed: {e}")
+
+def restore_notes(src_path):
+    db_path = os.path.expanduser("~/.notes_db.json")
+    confirm = input(f"Are you sure you want to restore notes from {src_path}? This will overwrite current notes. (y/n) > ")
+    if confirm.lower() == 'y':
+        try:
+            shutil.copy(src_path, db_path)
+            print("Notes restored.")
+        except Exception as e:
+            print(f"Restore failed: {e}")
+    else:
+        print("Restore cancelled.")
+
+def export_note(line_number, filename=None):
+    db = load_db()
+    keys = list(db.keys())
+    if not (1 <= line_number <= len(keys)):
+        print("Invalid note number.")
+        return
+
+    nid = keys[line_number - 1]
+    note = db[nid]
+    content = note['content']
+
+    if not filename:
+        filename = input("Filename to export to: ").strip()
+
+    # Append .txt if no extension
+    if not os.path.splitext(filename)[1]:
+        filename += ".txt"
+
+    # Optional: confirm overwrite if file exists
+    if os.path.exists(filename):
+        confirm = input(f"File {filename} already exists. Overwrite? (y/n) > ").strip().lower()
+        if confirm != 'y':
+            print("Export cancelled.")
+            return
+
+    try:
+        with open(filename, 'w') as f:
+            f.write(content)
+        print(f"Note {line_number} exported to {filename}")
+    except Exception as e:
+        print(f"Export failed: {e}")
+
+def import_note(filename):
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        print(f"Import failed: {e}")
+        return
+
+    tag_input = input("Enter tags for this note (space-separated, or leave blank): ").strip()
+    tags = tag_input.split() if tag_input else []
+
+    add_note(content, tags=tags)
 
 def add_note(text, tags=None):
     db = load_db()
@@ -149,11 +222,17 @@ def list_notes(all_info=False):
 def delete_note(line_number):
     db = load_db()
     keys = list(db.keys())
+
     if 1 <= line_number <= len(keys):
         nid = keys[line_number - 1]
-        del db[nid]
-        save_db(db)
-        print(f"Deleted note {nid}")
+        preview = db[nid]['content'][:100].replace('\n', ' ')
+        confirm = input(f"Are you sure you want to delete note {line_number}? Preview: \"{preview}\" (y/n) > ").strip().lower()
+        if confirm == 'y':
+            del db[nid]
+            save_db(db)
+            print(f"Deleted note {line_number}")
+        else:
+            print("Cancelled.")
     else:
         print("Invalid note number.")
 
@@ -334,6 +413,23 @@ def main():
 
     if args[0] in ["-h", "--help", "help"]:
         print_help()
+
+    elif args[0] == "backup" and len(args) == 2:
+        backup_notes(args[1])
+
+    elif args[0] == "restore" and len(args) == 2:
+        restore_notes(args[1])
+
+    elif args[0] == "export" and len(args) >= 2:
+        try:
+            line_number = int(args[1])
+            filename = args[2] if len(args) > 2 else None
+            export_note(line_number, filename)
+        except ValueError:
+            print("Please provide a valid number.")
+
+    elif args[0] == "import" and len(args) == 2:
+        import_note(args[1])
 
     elif args[0] == "add":
         args, tags = extract_tags(args[1:])  # skip "add"
