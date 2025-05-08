@@ -7,7 +7,7 @@ A fast command-line tool for managing plain-text notes using a simple JSON store
 ## install
 
 ```bash
-git clone https://github.com/yourusername/note.git
+git clone https://github.com/emfleak/note.git
 cd note
 pip install colorama
 chmod +x note.py
