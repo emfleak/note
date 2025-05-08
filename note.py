@@ -38,6 +38,8 @@ Usage:
   note search <keyword>                      Search notes for keyword
   note tags                                  List all tags
   note tags <tag>                            List all notes with a specific tag
+  note tagadd <number> tag1 tag2   Add tags to an existing note
+  note tagrm <number> tag1 tag2    Remove tags from an existing note
   note --delete-all                          Delete ALL notes (with confirmation)
   note backup <path>                         Backup all notes to a file
   note restore <path>                        Restore notes from backup
@@ -62,6 +64,8 @@ Examples:
   note edit 3
   note tags
   note tags work
+  note tagadd 2 dev tools
+  note tagrm 2 urgent
   note search ssl
   note --delete-all
   note backup notes_backup.json
@@ -152,7 +156,7 @@ def add_note(text, tags=None):
     db[note_id] = {
         "timestamp": datetime.now().isoformat(),
         "content": text,
-		"tags": tags or []
+    "tags": tags or []
     }
     save_db(db)
     print(f"Note saved with ID {note_id}")
@@ -327,6 +331,42 @@ def search_notes(keyword):
     if not found:
         print(f"No notes found containing '{keyword}'.")
 
+def add_tags_to_note(line_number, tags_to_add):
+    db = load_db()
+    keys = list(db.keys())
+
+    if not (1 <= line_number <= len(keys)):
+        print("Invalid note number.")
+        return
+
+    nid = keys[line_number - 1]
+    existing_tags = set(db[nid].get('tags', []))
+    new_tags = set(t.lower() for t in tags_to_add)
+
+    updated_tags = list(existing_tags.union(new_tags))
+    db[nid]['tags'] = sorted(updated_tags)
+    save_db(db)
+
+    print(f"Added tags to note {line_number}: {', '.join(new_tags)}")
+
+def remove_tags_from_note(line_number, tags_to_remove):
+    db = load_db()
+    keys = list(db.keys())
+
+    if not (1 <= line_number <= len(keys)):
+        print("Invalid note number.")
+        return
+
+    nid = keys[line_number - 1]
+    current_tags = set(db[nid].get('tags', []))
+    tags_to_remove = set(t.lower() for t in tags_to_remove)
+
+    updated_tags = list(current_tags - tags_to_remove)
+    db[nid]['tags'] = sorted(updated_tags)
+    save_db(db)
+
+    print(f"Removed tags from note {line_number}: {', '.join(tags_to_remove)}")
+
 def pick_with_fzf():
     db = load_db()
     if not db:
@@ -496,6 +536,20 @@ def main():
 
     elif args[0] == "search" and len(args) >= 2:
         search_notes(' '.join(args[1:]))
+
+    elif args[0] == "tagadd" and len(args) >= 3:
+        try:
+            line_number = int(args[1])
+            add_tags_to_note(line_number, args[2:])
+        except ValueError:
+            print("Please provide a valid number.")
+
+    elif args[0] == "tagrm" and len(args) >= 3:
+        try:
+            line_number = int(args[1])
+            remove_tags_from_note(line_number, args[2:])
+        except ValueError:
+            print("Please provide a valid number.")
 
     else:
         # Default case: quick note entry
