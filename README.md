@@ -1,35 +1,17 @@
-# 📝 note — A Fast Terminal Note-Taking Tool
+# note - terminal note-taking tool
 
-**note** is a lightweight, terminal-first note-taking app designed for **speed**, **clarity**, and **power**. Whether you're jotting quick tasks or logging structured thoughts, `note` lets you do it all from the command line — instantly.
-
----
-
-## Features
-
-- Quick inline notes with `note "this is a note"`  
-- Multiline notes with your favorite editor (`nano`, `vim`, etc.)
-- Fuzzy search picker with `fzf`
-- Append to or edit existing notes by number
-- Tagging support (`--tags`)
-- Delete notes by number, or purge everything with confirmation
-- Human-readable JSON storage (~/.notes_db.json)
-- Colorized output for readability
+A fast command-line tool for managing plain-text notes using a simple JSON store. Supports one-liner notes, multiline editing, tags, search, backup, import/export, and a fuzzy picker.
 
 ---
 
-## Installation
-
-### 1. Clone the repo
+## install
 
 ```bash
-git clone https://github.com/emfleak/note.git
+git clone https://github.com/yourusername/note.git
 cd note
-```
-
-### 2. Install dependencies
-
-```bash
 pip install colorama
+chmod +x note.py
+mv note.py /usr/local/bin/note
 ```
 
 Install `fzf`:
@@ -38,108 +20,72 @@ Install `fzf`:
 # macOS
 brew install fzf
 
-# Ubuntu/Debian
+# Debian/Ubuntu
 sudo apt install fzf
 ```
 
-### 3. Install the CLI
+Optionally set your preferred editor:
 
 ```bash
-chmod +x note.py
-mv note.py /usr/local/bin/note  # Or any directory in your PATH
-```
-
-## Example Usage
-
-### Quick notes
-
-```bash
-note "Fix broken redirect in Nginx"
-```
-
-### Multiline notes
-
-```bash
-note add
-```
-
-Will launch nano. Add `--tags` for organization:
-
-```bash
-note add --tags project journal
-```
-
-### List notes
-
-```bash
-note list           # Clean view (line number, time, preview)
-note list -a        # Full view (includes ID and tags)
-```
-
-### View note
-
-```bash
-note view 12
-```
-
-### Search notes
-
-```bash
-note search nginx
-```
-
-### Tag notes
-
-```bash
-note "Add SSL to API gateway" --tags infra security
-note tags           # Show all tags
-note tags infra     # Filter by tag
-```
-
-### Edit or append to notes
-
-```bash
-note append 2 "Add link to bug ticket"
-note edit 3
-```
-
-### Delete notes
-
-```bash
-note del 4
-note --delete-all   # Prompts for confirmation
+export EDITOR=nano
 ```
 
 ---
 
-## Interactive Picker (fzf)
-
-Run `note` with no arguments to launch an interactive fuzzy-searchable picker:
+## usage
 
 ```bash
+note "buy milk"
+note "fix nginx config" --tags infra urgent
+note add --tags journal
+note list
+note list -a
+note search nginx
+note view 2
+note edit 2
+note append 2 "add link to ticket"
+note del 2
+note tagadd 3 work
+note tagrm 3 urgent
+note tags
+note tags work
+note --delete-all
+note import some_note.txt
+note export 1
+note export 1 exported.txt
+note backup notes_backup.json
+note restore notes_backup.json
 note
 ```
 
-- Type to filter notes
-- Use arrow keys and Enter to:
-  - (v)iew]
-  - (e)dit
-  - (d)elete
-- Supports **multi-select** for bulk deletion
-- Colorized and tag-aware
+---
+
+## commands
+
+```text
+note "text" [--tags ...]           add a new one-line note
+note add [--tags ...]              add a new multiline note in editor
+note list                          list notes (line number, timestamp, preview)
+note list -a                       list with ID and tags
+note view <number>                view full note by number
+note edit <number>                edit a note in editor
+note append <number> "text"       append text to a note
+note del <number>                 delete a note (with confirmation)
+note search <keyword>             search all notes
+note tags                         list all tags
+note tags <tag>                   show notes with specific tag
+note tagadd <number> <tags...>    add tags to a note
+note tagrm <number> <tags...>     remove tags from a note
+note export <number> [filename]   export a note to a file (default .txt)
+note import <filename>            import a note from a file
+note backup <path>                save a backup of all notes
+note restore <path>               restore notes from a backup (with confirmation)
+note                              launch fuzzy picker
+```
 
 ---
 
-## Example Output
-
-```bash
-note list -a
-
-1   94d8f0a2   9:05AM Mon, Apr 29 2025   Fix redirect issue        [infra, urgent]
-2   b21c3a0e   10:30AM Tue, Apr 30 2025  Finalize meeting agenda   [work, planning]
-```
-
-## Storage
+## storage
 
 All notes are stored in:
 
@@ -147,23 +93,47 @@ All notes are stored in:
 ~/.notes_db.json
 ```
 
-This makes it easy to back up, sync, or inspect manually.
+---
+
+## picker
+
+Run `note` with no arguments to launch an interactive picker:
+
+- type to search
+- press Enter to view
+- after viewing: (e)dit, (a)ppend, (d)elete
+- multi-select with Tab for bulk delete
 
 ---
 
-## Why use `note`?
+## format
 
-- Fast and responsive (keyboard-only)
-- Cleaner than sticky notes, simpler than Notion
-- Cross-platform: macOS, Linux, WSL
-- Syncable: just version your `~/.notes_db.json`
+Notes are stored as JSON objects keyed by ID:
 
----
-
-## Help
-
-```bash
-note --help
+```json
+{
+  "abc12345": {
+    "timestamp": "2025-05-03T10:21:00",
+    "content": "fix nginx config",
+    "tags": ["infra", "urgent"]
+  }
+}
 ```
 
-Shows full usage instructions and examples.
+---
+
+## backup
+
+Back up your notes before updates:
+
+```bash
+note backup backup.json
+```
+
+Restore from backup:
+
+```bash
+note restore backup.json
+```
+
+---
