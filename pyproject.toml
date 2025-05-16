@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "note"
+version = "0.1.0"
+description = "Simple CLI note-taking tool"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Evan Fleak"}]
+dependencies = ["colorama"]
+
+[project.scripts]
+note = "note.cli:main"

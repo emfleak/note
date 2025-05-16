@@ -1,0 +1,148 @@
+Metadata-Version: 2.4
+Name: note
+Version: 0.1.0
+Summary: Simple CLI note-taking tool
+Author: Evan Fleak
+License: MIT
+Description-Content-Type: text/markdown
+Requires-Dist: colorama
+
+# note - terminal note-taking tool
+
+A fast command-line tool for managing plain-text notes using a simple JSON store. Supports one-liner notes, multiline editing, tags, search, backup, import/export, and a fuzzy picker.
+
+---
+
+## install
+
+```bash
+git clone https://github.com/emfleak/note.git
+cd note
+pip install colorama
+chmod +x note.py
+mv note.py /usr/local/bin/note
+```
+
+Install `fzf`:
+
+```bash
+# macOS
+brew install fzf
+
+# Debian/Ubuntu
+sudo apt install fzf
+```
+
+Optionally set your preferred editor:
+
+```bash
+export EDITOR=nano
+```
+
+---
+
+## usage
+
+```bash
+note "buy milk"
+note "fix nginx config" --tags infra urgent
+note add --tags journal
+note list
+note list -a
+note search nginx
+note view 2
+note edit 2
+note append 2 "add link to ticket"
+note del 2
+note tagadd 3 work
+note tagrm 3 urgent
+note tags
+note tags work
+note --delete-all
+note import some_note.txt
+note export 1
+note export 1 exported.txt
+note backup notes_backup.json
+note restore notes_backup.json
+note
+```
+
+---
+
+## commands
+
+```text
+note "text" [--tags ...]           add a new one-line note
+note add [--tags ...]              add a new multiline note in editor
+note list                          list notes (line number, timestamp, preview)
+note list -a                       list with ID and tags
+note view <number>                view full note by number
+note edit <number>                edit a note in editor
+note append <number> "text"       append text to a note
+note del <number>                 delete a note (with confirmation)
+note search <keyword>             search all notes
+note tags                         list all tags
+note tags <tag>                   show notes with specific tag
+note tagadd <number> <tags...>    add tags to a note
+note tagrm <number> <tags...>     remove tags from a note
+note export <number> [filename]   export a note to a file (default .txt)
+note import <filename>            import a note from a file
+note backup <path>                save a backup of all notes
+note restore <path>               restore notes from a backup (with confirmation)
+note                              launch fuzzy picker
+```
+
+---
+
+## storage
+
+All notes are stored in:
+
+```
+~/.notes_db.json
+```
+
+---
+
+## picker
+
+Run `note` with no arguments to launch an interactive picker:
+
+- type to search
+- press Enter to view
+- after viewing: (e)dit, (a)ppend, (d)elete
+- multi-select with Tab for bulk delete
+
+---
+
+## format
+
+Notes are stored as JSON objects keyed by ID:
+
+```json
+{
+  "abc12345": {
+    "timestamp": "2025-05-03T10:21:00",
+    "content": "fix nginx config",
+    "tags": ["infra", "urgent"]
+  }
+}
+```
+
+---
+
+## backup
+
+Back up your notes before updates:
+
+```bash
+note backup backup.json
+```
+
+Restore from backup:
+
+```bash
+note restore backup.json
+```
+
+---
