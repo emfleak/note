@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys, json, os, subprocess, tempfile, shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 from colorama import Fore, Style, init
 
@@ -31,8 +31,10 @@ Usage:
   note add [--tags tag1 tag2]                Add a multiline note using your editor
   note list                                  List notes (number, timestamp, snippet)
   note list -a                               List notes with full ID and tags
+  note list --archive                        List *only* archived notes
   note view <number>                         View a full note by line number
   note del <number>                          Delete a note by line number
+  note --archive <days>                      Archive notes older than N days
   note append <number> "text"                Append text to an existing note
   note edit <number>                         Edit a note in your editor
   note search <keyword>                      Search notes for keyword
@@ -58,8 +60,10 @@ Examples:
   note add --tags journal reflection
   note list
   note list -a
+  note list --archive
   note view 3
   note del 2
+  note --archive 30
   note append 1 "Include bug report link"
   note edit 3
   note tags
@@ -78,7 +82,12 @@ Examples:
 def load_db():
     if os.path.exists(DB_PATH):
         with open(DB_PATH, 'r') as f:
-            return json.load(f)
+            db = json.load(f)
+        for n in db.values():
+            if 'tags' not in n: n['tags'] = []
+            if 'archived' not in n: n['archived'] = False
+            if 'archived_at' not in n: n['archived_at'] = None
+        return db
     return {}
 
 def save_db(db):
@@ -195,20 +204,31 @@ def view_note(line_number):
     else:
         print("Invalid note number.")
 
-def list_notes(all_info=False):
+def list_notes(all_info=False, include_archived=False, only_archived=False):
     db = load_db()
     if not db:
         print("No notes yet.")
         return
 
-    for idx, (nid, note) in enumerate(db.items(), start=1):
+    def _show(n):
+        if only_archived:
+            return n.get('archived', False)
+        if include_archived:
+            return True
+        return not n.get('archived', False)
 
+    items = [(nid, n) for nid, n in db.items() if _show(n)]
+    if not items:
+        print("No notes match.")
+        return
+
+    for idx, (nid, note) in enumerate(items, start=1):
+        dt = pretty_time(note['timestamp'], year=True)
         preview = note['content'][:PREVIEW_LENGTH].replace('\n', ' ')+"..." if len(note['content']) > 40 else note['content'].replace('\n', ' ')
         tags = note.get('tags', [])
         tag_str = f" {Fore.MAGENTA}[{' '.join(tags)}]{Style.RESET_ALL}" if tags and all_info else ""
 
         if all_info:
-            dt = pretty_time(note['timestamp'], year=True)
             print(
                 f"{Fore.GREEN}{idx}{Style.RESET_ALL}\t"
                 f"{Fore.BLUE}{nid}{Style.RESET_ALL}\t"
@@ -251,6 +271,29 @@ def delete_all_notes():
         print("All notes deleted.")
     else:
         print("Cancelled.")
+
+def archive_older_than(days):
+    db = load_db()
+    cutoff = datetime.now() - timedelta(days=int(days))
+    changed = 0
+
+    for nid, note in db.items():
+        # skip already-archived
+        if note.get('archived'):
+            continue
+        # parse timestamp and compare
+        try:
+            ts = datetime.fromisoformat(note['timestamp'])
+        except Exception:
+            # if malformed timestamp, skip
+            continue
+        if ts < cutoff:
+            note['archived'] = True
+            note['archived_at'] = datetime.now().isoformat()
+            changed += 1
+
+    save_db(db)
+    print(f"Archived {changed} note(s) older than {days} day(s).")
 
 def append_note(line_number, text):
     db = load_db()
@@ -322,7 +365,7 @@ def search_notes(keyword):
     db = load_db()
     keyword = keyword.lower()
     found = False
-    for idx, (nid, note) in enumerate(db.items(), start=1):
+    for idx, (nid, note) in enumerate(((k,v) for k,v in db.items() if not v.get('archived', False)), start=1):
         if keyword in note['content'].lower():
             dt = note['timestamp']
             preview = note['content'][:100].replace('\n', ' ')
@@ -369,6 +412,10 @@ def remove_tags_from_note(line_number, tags_to_remove):
 
 def pick_with_fzf():
     db = load_db()
+    active_items = [(nid, n) for nid, n in db.items() if not n.get('archived', False)]
+    if not active_items:
+        print("No notes to pick.")
+        return
     if not db:
         print("No notes to pick.")
         return
@@ -376,7 +423,7 @@ def pick_with_fzf():
     lines = []
     keys = list(db.keys())
 
-    for idx, (nid, note) in enumerate(db.items(), start=1):
+    for idx, (nid, note) in enumerate(active_items, start=1):
         dt = pretty_time(note['timestamp'])
         preview = note['content'][:PREVIEW_LENGTH].replace('\n', ' ')
         tags = note.get('tags', [])
@@ -468,6 +515,14 @@ def main():
         except ValueError:
             print("Please provide a valid number.")
 
+    elif args[0] == "--archive" and len(args) == 2:
+        try:
+            days = int(args[1])
+        except ValueError:
+            print("Usage: note --archive <days>")
+            return
+        archive_older_than(days)
+
     elif args[0] == "import" and len(args) == 2:
         import_note(args[1])
 
@@ -483,10 +538,9 @@ def main():
             print("Please provide a valid number.")
 
     elif args[0] in ["list", "ls", "--list"]:
-        if len(args) > 1 and args[1] == "-a":
-            list_notes(all_info=True)
-        else:
-            list_notes(all_info=False)
+        show_all_info = ("-a" in args[1:])
+        only_archived = ("--archive" in args[1:])
+        list_notes(all_info=show_all_info, include_archived=False, only_archived=only_archived)
 
     elif args[0] == "tags":
         db = load_db()
