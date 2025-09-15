@@ -13,6 +13,26 @@ def pretty_time(timestring, year=False):
     dt = datetime.fromisoformat(timestring)
     return dt.strftime("%-I:%M%p %a, %b %d") if not year else dt.strftime("%-I:%M%p %a, %b %d %Y")
 
+def _should_show(note, include_archived=False, only_archived=False):
+    if only_archived:
+        return note.get('archived', False)
+    if include_archived:
+        return True
+    return not note.get('archived', False)
+
+def get_filtered_items(include_archived=False, only_archived=False):
+    db = load_db()
+    # Filter and keep insertion order (same as list_notes)
+    items = [(nid, n) for nid, n in db.items()
+             if _should_show(n, include_archived, only_archived)]
+    return items
+
+def resolve_note_id_by_index(line_number, include_archived=False, only_archived=False):
+    items = get_filtered_items(include_archived=include_archived, only_archived=only_archived)
+    if 1 <= line_number <= len(items):
+        return items[line_number - 1][0]   # nid
+    return None
+
 def extract_tags(args):
     if '--tags' in args:
         idx = args.index('--tags')
@@ -114,27 +134,25 @@ def restore_notes(src_path):
     else:
         print("Restore cancelled.")
 
-def export_note(line_number, filename=None):
-    db = load_db()
-    keys = list(db.keys())
-    if not (1 <= line_number <= len(keys)):
-        print("Invalid note number.")
+def export_note(line_number, filename=None, *, only_archived=False, include_archived=False):
+    nid = resolve_note_id_by_index(line_number, include_archived=include_archived, only_archived=only_archived)
+    if not nid:
+        print("Invalid note number for this view.")
         return
 
-    nid = keys[line_number - 1]
-    note = db[nid]
-    content = note['content']
+    db = load_db()
+    content = db[nid].get('content', '')
 
     if not filename:
         filename = input("Filename to export to: ").strip()
 
-    # Append .txt if no extension
+    # Append .txt if no extension supplied
     if not os.path.splitext(filename)[1]:
         filename += ".txt"
 
-    # Optional: confirm overwrite if file exists
+    # Confirm overwrite
     if os.path.exists(filename):
-        confirm = input(f"File {filename} already exists. Overwrite? (y/n) > ").strip().lower()
+        confirm = input(f"File {filename} exists. Overwrite? (y/n) > ").strip().lower()
         if confirm != 'y':
             print("Export cancelled.")
             return
@@ -188,21 +206,21 @@ def add_note_with_editor(tags=None):
     else:
         print("Empty note discarded.")
 
-def view_note(line_number):
-    db = load_db()
-    keys = list(db.keys())
-    if 1 <= line_number <= len(keys):
-        nid = keys[line_number - 1]
-        note = db[nid]
-        dt = pretty_time(note["timestamp"], year=True)
-        tags = note.get("tags", [])
-        tag_str = f"[{', '.join(tags)}]" if tags else ""
+def view_note(line_number, *, only_archived=False, include_archived=False):
+    nid = resolve_note_id_by_index(line_number, include_archived=include_archived, only_archived=only_archived)
+    if not nid:
+        print("Invalid note number for this view.")
+        return
 
-        print(f"\n{Fore.GREEN}Note {line_number} ({nid})")
-        print(f"{Fore.LIGHTBLACK_EX}{dt} {Fore.MAGENTA}{tag_str}{Style.RESET_ALL}")
-        print("\n" + note["content"] + "\n")
-    else:
-        print("Invalid note number.")
+    db = load_db()
+    note = db[nid]
+    dt_full = pretty_time(note['timestamp'], year=True)
+    tags = note.get('tags', [])
+    tag_str = f"[{', '.join(tags)}]" if tags else ""
+
+    print(f"\n{Fore.GREEN}Note {line_number} ({nid}){Style.RESET_ALL}")
+    print(f"{Fore.LIGHTBLACK_EX}{dt_full}{Style.RESET_ALL} {Fore.MAGENTA}{tag_str}{Style.RESET_ALL}\n")
+    print(note.get('content', ''))
 
 def list_notes(all_info=False, include_archived=False, only_archived=False):
     db = load_db()
@@ -243,22 +261,22 @@ def list_notes(all_info=False, include_archived=False, only_archived=False):
                 f"{preview}"
             )
 
-def delete_note(line_number):
-    db = load_db()
-    keys = list(db.keys())
+def delete_note(line_number, *, only_archived=False, include_archived=False):
+    nid = resolve_note_id_by_index(line_number, include_archived=include_archived, only_archived=only_archived)
+    if not nid:
+        print("Invalid note number for this view.")
+        return
 
-    if 1 <= line_number <= len(keys):
-        nid = keys[line_number - 1]
-        preview = db[nid]['content'][:100].replace('\n', ' ')
-        confirm = input(f"Are you sure you want to delete note {line_number}? Preview: \"{preview}\" (y/n) > ").strip().lower()
-        if confirm == 'y':
-            del db[nid]
-            save_db(db)
-            print(f"Deleted note {line_number}")
-        else:
-            print("Cancelled.")
+    db = load_db()
+    preview = db[nid].get('content', '').replace('\n', ' ')
+    preview = (preview[:PREVIEW_LENGTH] + '...') if len(preview) > PREVIEW_LENGTH else preview
+    confirm = input(f"Are you sure you want to delete note {line_number}? Preview: \"{preview}\" (y/n) > ").strip().lower()
+    if confirm == 'y':
+        del db[nid]
+        save_db(db)
+        print(f"Deleted note {line_number}")
     else:
-        print("Invalid note number.")
+        print("Cancelled.")
 
 def delete_all_notes():
     db = load_db()
@@ -295,45 +313,49 @@ def archive_older_than(days):
     save_db(db)
     print(f"Archived {changed} note(s) older than {days} day(s).")
 
-def append_note(line_number, text):
-    db = load_db()
-    keys = list(db.keys())
-    if 1 <= line_number <= len(keys):
-        nid = keys[line_number - 1]
-        db[nid]['content'] += "\n" + text
-        save_db(db)
-        print(f"Appended to note {nid}")
-    else:
-        print("Invalid note number.")
-
-def edit_note(line_number):
-    db = load_db()
-    keys = list(db.keys())
-    if not (1 <= line_number <= len(keys)):
-        print("Invalid note number.")
+def append_note(line_number, text, *, only_archived=False, include_archived=False):
+    nid = resolve_note_id_by_index(line_number, include_archived=include_archived, only_archived=only_archived)
+    if not nid:
+        print("Invalid note number for this view.")
         return
 
-    nid = keys[line_number - 1]
-    content = db[nid]['content']
+    db = load_db()
+    db[nid]['content'] = (db[nid].get('content', '') + ("\n" if db[nid].get('content') else "") + text)
+    save_db(db)
+    print(f"Appended to note {line_number}")
 
-    editor = os.environ.get("EDITOR", "nano")  # use $EDITOR if set, fallback to nano
+def edit_note(line_number, *, only_archived=False, include_archived=False):
+    import os, tempfile, subprocess
+
+    items = get_filtered_items(include_archived=include_archived, only_archived=only_archived)
+    if not (1 <= line_number <= len(items)):
+        print("Invalid note number for this view.")
+        return
+
+    nid, note = items[line_number - 1]
+    original = note.get('content', '')
+    editor = os.environ.get("EDITOR", "nano")
 
     with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp:
-        tmp.write(content)
+        tmp.write(original)
         tmp.flush()
         tmp_path = tmp.name
 
-    subprocess.call([editor, tmp_path])
+    try:
+        subprocess.call([editor, tmp_path])
+        with open(tmp_path, 'r') as f:
+            updated = f.read()
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
 
-    with open(tmp_path, 'r') as tmp:
-        updated_content = tmp.read()
-
-    os.unlink(tmp_path)
-
-    if updated_content.strip() != content.strip():
-        db[nid]['content'] = updated_content
+    if updated.strip() != original.strip():
+        db = load_db()
+        db[nid]['content'] = updated
         save_db(db)
-        print("Note updated.")
+        print(f"Note {line_number} updated.")
     else:
         print("No changes made.")
 
@@ -412,24 +434,22 @@ def remove_tags_from_note(line_number, tags_to_remove):
 
 def pick_with_fzf():
     db = load_db()
-    active_items = [(nid, n) for nid, n in db.items() if not n.get('archived', False)]
+
+    # Build active list (exclude archived) and keep insertion order
+    active_items = [(nid, note) for nid, note in db.items() if not note.get('archived', False)]
     if not active_items:
         print("No notes to pick.")
         return
-    if not db:
-        print("No notes to pick.")
-        return
 
+    # Prepare display lines (1-based indices), include tags in magenta
     lines = []
-    keys = list(db.keys())
-
     for idx, (nid, note) in enumerate(active_items, start=1):
         dt = pretty_time(note['timestamp'])
-        preview = note['content'][:PREVIEW_LENGTH].replace('\n', ' ')
+        raw = note['content'].replace('\n', ' ')
+        preview = (raw[:PREVIEW_LENGTH] + '...') if len(raw) > PREVIEW_LENGTH else raw
         tags = note.get('tags', [])
         tag_str = f"\033[35m[{', '.join(tags)}]\033[0m" if tags else ""
-        line = f"{idx}\t{dt}\t{preview} {tag_str}"
-        lines.append(line)
+        lines.append(f"{idx}\t{dt}\t{preview} {tag_str}")
 
     try:
         fzf = subprocess.run(
@@ -442,52 +462,72 @@ def pick_with_fzf():
             return
 
         selected_lines = fzf.stdout.strip().splitlines()
+        # first field is the 1-based index we printed
         selected_idxs = [int(line.split("\t")[0]) for line in selected_lines]
-        selected_ids = [keys[idx - 1] for idx in selected_idxs]
 
-        # Single note selected
+        # Map indices back to note IDs using the SAME active_items list
+        selected_ids = []
+        for i in selected_idxs:
+            if 1 <= i <= len(active_items):
+                selected_ids.append(active_items[i - 1][0])
+
+        if not selected_ids:
+            return
+
+        # ----- Single selection: view on Enter, then offer actions -----
         if len(selected_ids) == 1:
             nid = selected_ids[0]
             note = db[nid]
-            dt = pretty_time(note["timestamp"], year=True)
+            dt_full = pretty_time(note["timestamp"], year=True)
             tags = note.get("tags", [])
             tag_str = f"[{', '.join(tags)}]" if tags else ""
 
-            print(f"\n{Fore.GREEN}Note {selected_idxs[0]} ({nid})")
-            print(f"{Fore.LIGHTBLACK_EX}{dt} {Fore.MAGENTA}{tag_str}{Style.RESET_ALL}")
-            print("\n" + note["content"])
+            # Show the full note
+            print(f"\n{Fore.GREEN}Note ({nid}){Style.RESET_ALL}")
+            print(f"{Fore.LIGHTBLACK_EX}{dt_full}{Style.RESET_ALL} {Fore.MAGENTA}{tag_str}{Style.RESET_ALL}\n")
+            print(note.get('content', ''))
 
-            next_action = input("\nDo you want to (e)dit, (a)ppend, (d)elete, or (Enter) to cancel? > ").strip().lower()
+            # Post-view actions
+            next_action = input("\n(e)dit, (a)ppend, (d)elete, or (Enter) to cancel > ").strip().lower()
 
             if next_action == "e":
+                # Use your ID-based editor (already defined elsewhere)
                 edit_note_by_id(nid)
+
             elif next_action == "a":
                 text = input("Append text: ")
-                db[nid]['content'] += "\n" + text
-                save_db(db)
-                print("Note updated.")
+                if text.strip():
+                    db[nid]['content'] = (db[nid].get('content', '') + ("\n" if db[nid].get('content') else "") + text)
+                    save_db(db)
+                    print("Note updated.")
+                else:
+                    print("Cancelled.")
+
             elif next_action == "d":
-                confirm = input(f"Delete note {nid}? (y/n) > ")
-                if confirm.lower() == 'y':
+                confirm = input(f"Delete note {nid}? (y/n) > ").strip().lower()
+                if confirm == 'y':
                     del db[nid]
                     save_db(db)
                     print("Note deleted.")
+                else:
+                    print("Cancelled.")
             else:
                 print("No changes made.")
+            return
 
-        # Multi-select → bulk delete
-        elif len(selected_ids) > 1:
-            print("Selected notes:")
-            for nid in selected_ids:
-                print(f"- {nid}")
-            confirm = input("Delete all selected notes? (y/n) > ").strip().lower()
-            if confirm == 'y':
-                for nid in selected_ids:
-                    del db[nid]
-                save_db(db)
-                print(f"Deleted {len(selected_ids)} notes.")
-            else:
-                print("Cancelled.")
+        # ----- Multi-select: bulk delete -----
+        print("Selected notes:")
+        for sid in selected_ids:
+            print(f"- {sid}")
+        confirm = input("Delete all selected notes? (y/n) > ").strip().lower()
+        if confirm == 'y':
+            for sid in selected_ids:
+                if sid in db:
+                    del db[sid]
+            save_db(db)
+            print(f"Deleted {len(selected_ids)} notes.")
+        else:
+            print("Cancelled.")
 
     except Exception as e:
         print(f"Error using fzf: {e}")
@@ -507,13 +547,16 @@ def main():
     elif args[0] == "restore" and len(args) == 2:
         restore_notes(args[1])
 
+
     elif args[0] == "export" and len(args) >= 2:
+        only_archived = ("--archive" in args[1:])
         try:
-            line_number = int(args[1])
-            filename = args[2] if len(args) > 2 else None
-            export_note(line_number, filename)
-        except ValueError:
-            print("Please provide a valid number.")
+            nonflags = [a for a in args[1:] if not a.startswith("-")]
+            num = int(nonflags[0])
+            fname = nonflags[1] if len(nonflags) > 1 else None
+            export_note(num, fname, only_archived=only_archived)
+        except Exception:
+            print("Usage: note export <number> [filename] [--archive]")
 
     elif args[0] == "--archive" and len(args) == 2:
         try:
@@ -531,11 +574,12 @@ def main():
         add_note_with_editor(tags=tags)
 
     elif args[0] in ["view", "v", "show"] and len(args) == 2:
+        only_archived = ("--archive" in args[1:])
         try:
-            line_number = int(args[1])
-            view_note(line_number)
-        except ValueError:
-            print("Please provide a valid number.")
+            num = int([a for a in args[1:] if not a.startswith("-")][0])
+            view_note(num, only_archived=only_archived)
+        except Exception:
+            print("Usage: note view <number> [--archive]")
 
     elif args[0] in ["list", "ls", "--list"]:
         show_all_info = ("-a" in args[1:])
@@ -567,26 +611,30 @@ def main():
     elif args[0] == "--delete-all":
         delete_all_notes()
 
-    elif args[0] == "del" and len(args) == 2:
+    elif args[0] == "del" and len(args) >= 2:
+        only_archived = ("--archive" in args[1:])
         try:
-            line_number = int(args[1])
-            delete_note(line_number)
-        except ValueError:
-            print("Please provide a valid number.")
+            num = int([a for a in args[1:] if not a.startswith("-")][0])
+            delete_note(num, only_archived=only_archived)
+        except Exception:
+            print("Usage: note del <number> [--archive]")
 
     elif args[0] == "append" and len(args) >= 3:
+        only_archived = ("--archive" in args[1:])
         try:
-            line_number = int(args[1])
-            append_note(line_number, ' '.join(args[2:]))
-        except ValueError:
-            print("Please provide a valid number.")
+            num = int([a for a in args[1:] if not a.startswith("-")][0])
+            append_note(num, ' '.join([a for a in args[2:] if not a.startswith("-")]), only_archived=only_archived)
+        except Exception:
+            print("Usage: note append <number> <text> [--archive]")
 
-    elif args[0] == "edit" and len(args) == 2:
+
+    elif args[0] == "edit" and len(args) >= 2:
+        only_archived = ("--archive" in args[1:])
         try:
-            line_number = int(args[1])
-            edit_note(line_number)
-        except ValueError:
-            print("Please provide a valid number.")
+            num = int([a for a in args[1:] if not a.startswith("-")][0])
+            edit_note(num, only_archived=only_archived)
+        except Exception:
+            print("Usage: note edit <number> [--archive]")
 
     elif args[0] == "search" and len(args) >= 2:
         search_notes(' '.join(args[1:]))
